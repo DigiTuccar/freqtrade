@@ -86,7 +86,7 @@ class CustomDataWrapper:
     """
 
     use_db = True
-    custom_data: list[_CustomData] = []
+    custom_data: dict[int, list[_CustomData]] = {}
     unserialized_types = ["bool", "float", "int", "str"]
 
     @staticmethod
@@ -109,7 +109,7 @@ class CustomDataWrapper:
         Resets all key-value pairs. Only active for backtesting mode.
         """
         if not CustomDataWrapper.use_db:
-            CustomDataWrapper.custom_data = []
+            CustomDataWrapper.custom_data = {}
 
     @staticmethod
     def delete_custom_data(trade_id: int) -> None:
@@ -129,11 +129,7 @@ class CustomDataWrapper:
             ).all()
 
         else:
-            filtered_custom_data = [
-                data_entry
-                for data_entry in CustomDataWrapper.custom_data
-                if (data_entry.ft_trade_id == trade_id)
-            ]
+            filtered_custom_data = list(CustomDataWrapper.custom_data.get(trade_id, []))
             if key is not None:
                 filtered_custom_data = [
                     data_entry
@@ -178,5 +174,5 @@ class CustomDataWrapper:
             _CustomData.session.commit()
         else:
             if not custom_data:
-                CustomDataWrapper.custom_data.append(data_entry)
+                CustomDataWrapper.custom_data.setdefault(trade_id, []).append(data_entry)
             # Existing data will have updated interactively.

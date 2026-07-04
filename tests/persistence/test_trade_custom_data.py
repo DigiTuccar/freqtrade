@@ -166,3 +166,23 @@ def test_trade_custom_data_strategy_backtest_compat(mocker, default_conf_usdt, f
 
     assert ff_spy.call_count == 7
     Backtesting.cleanup()
+
+
+def test_custom_data_backtest_index_isolation_and_semantics():
+    CustomDataWrapper.use_db = False
+    try:
+        CustomDataWrapper.reset_custom_data()
+        CustomDataWrapper.set_custom_data(trade_id=1, key="a", value=10)
+        CustomDataWrapper.set_custom_data(trade_id=2, key="a", value=20)
+        CustomDataWrapper.set_custom_data(trade_id=1, key="B", value=30)
+        assert [d.value for d in CustomDataWrapper.get_custom_data(trade_id=1)] == [10, 30]
+        assert [d.value for d in CustomDataWrapper.get_custom_data(trade_id=2)] == [20]
+        assert CustomDataWrapper.get_custom_data(trade_id=1, key="b")[0].value == 30
+        CustomDataWrapper.set_custom_data(trade_id=1, key="a", value=99)
+        got = CustomDataWrapper.get_custom_data(trade_id=1, key="a")
+        assert len(got) == 1 and got[0].value == 99
+        CustomDataWrapper.reset_custom_data()
+        assert CustomDataWrapper.get_custom_data(trade_id=1) == []
+    finally:
+        CustomDataWrapper.use_db = True
+        CustomDataWrapper.reset_custom_data()
