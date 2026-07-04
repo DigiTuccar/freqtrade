@@ -5,6 +5,7 @@ This module contains the class to persist trades into SQLite
 import logging
 from collections import defaultdict
 from collections.abc import Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from math import isclose
@@ -116,6 +117,22 @@ class Order(ModelBase):
     # Fee if paid in base currency
     ft_fee_base: Mapped[float | None] = mapped_column(Float(), nullable=True)
     ft_order_tag: Mapped[str | None] = mapped_column(String(CUSTOM_TAG_MAX_LENGTH), nullable=True)
+
+    def __deepcopy__(self, memo):
+        # Lean protective copy for strategy callbacks: skip walking SQLAlchemy's
+        # _sa_instance_state graph (the backtest hot-loop's #1 cost); give the copy
+        # a fresh detached state so it stays fully readable/writable but never
+        # flushes to a session.
+        cls = self.__class__
+        new = cls.__new__(cls)
+        memo[id(self)] = new
+        st = self.__dict__["_sa_instance_state"]
+        new.__dict__["_sa_instance_state"] = st.__class__(new, st.manager)
+        for k, v in self.__dict__.items():
+            if k == "_sa_instance_state":
+                continue
+            new.__dict__[k] = deepcopy(v, memo)
+        return new
 
     @property
     def order_date_utc(self) -> datetime:
